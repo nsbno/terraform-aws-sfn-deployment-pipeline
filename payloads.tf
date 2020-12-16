@@ -24,12 +24,13 @@ locals {
         })
       ]
   }]...)
-  input_to_bump_versions_in_test = merge(local.input_to_get_latest_artifact_versions, {
+  # test account is optional
+  input_to_bump_versions_in_test = contains(keys(var.deployment_configuration.accounts), "test") ? merge(local.input_to_get_latest_artifact_versions, {
     account_id   = var.deployment_configuration.accounts.test.id
     get_versions = false
     set_versions = ! lookup(var.deployment_configuration.accounts.test, "dry_run", false)
     "versions.$" = "$.versions"
-  })
+  }) : null
   input_to_bump_versions_in_stage = merge(local.input_to_get_latest_artifact_versions, {
     account_id   = var.deployment_configuration.accounts.stage.id
     get_versions = false
@@ -68,12 +69,14 @@ locals {
     "content.$"   = "$.deployment_package"
   })
   # Set up shell commands for the deployment states
-  input_to_deploy_service = merge(local.common_input_to_deploy_states, {
-    cmd_to_run = contains(keys(var.deployment_configuration.accounts), "service") ? "${format(local.assume_role_cmd, "arn:aws:iam::${var.deployment_configuration.accounts.service.id}:role/${var.deployment_configuration.deployment_role}")} && ${format(local.terraform_deployment_cmd, lookup(var.deployment_configuration.accounts.service, "path", "terraform/service"), lookup(var.deployment_configuration.accounts.service, "dry_run", false) ? "terraform plan" : "terraform apply -auto-approve")}" : ""
-  })
-  input_to_deploy_test = merge(local.common_input_to_deploy_states, {
+  # service is optional account
+  input_to_deploy_service = contains(keys(var.deployment_configuration.accounts), "service") ? merge(local.common_input_to_deploy_states, {
+    cmd_to_run = "${format(local.assume_role_cmd, "arn:aws:iam::${var.deployment_configuration.accounts.service.id}:role/${var.deployment_configuration.deployment_role}")} && ${format(local.terraform_deployment_cmd, lookup(var.deployment_configuration.accounts.service, "path", "terraform/service"), lookup(var.deployment_configuration.accounts.service, "dry_run", false) ? "terraform plan" : "terraform apply -auto-approve")}"
+  }) : null
+  # test is optional account
+  input_to_deploy_test = contains(keys(var.deployment_configuration.accounts), "test") ? merge(local.common_input_to_deploy_states, {
     cmd_to_run = "${format(local.assume_role_cmd, "arn:aws:iam::${var.deployment_configuration.accounts.test.id}:role/${var.deployment_configuration.deployment_role}")} && ${format(local.terraform_deployment_cmd, lookup(var.deployment_configuration.accounts.test, "path", "terraform/test"), lookup(var.deployment_configuration.accounts.test, "dry_run", false) ? "terraform plan" : "terraform apply -auto-approve")}"
-  })
+  }) : null
 
   input_to_deploy_stage = merge(local.common_input_to_deploy_states, {
     cmd_to_run = "${format(local.assume_role_cmd, "arn:aws:iam::${var.deployment_configuration.accounts.stage.id}:role/${var.deployment_configuration.deployment_role}")} && ${format(local.terraform_deployment_cmd, lookup(var.deployment_configuration.accounts.stage, "path", "terraform/stage"), lookup(var.deployment_configuration.accounts.stage, "dry_run", false) ? "terraform plan" : "terraform apply -auto-approve")}"

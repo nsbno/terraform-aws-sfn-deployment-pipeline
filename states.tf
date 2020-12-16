@@ -17,15 +17,15 @@ locals {
           "lambda.$"   = "$.Payload.lambda"
         }
         "ResultPath" = "$.versions",
-        "Next"       = "Deploy to Test and Stage"
+        "Next"       = "Parallel Deployment"
       }
-      "Deploy to Test and Stage" = {
-        "Comment"    = "Parallel deployment to test and stage environments"
+      "Parallel Deployment" = {
+        "Comment"    = "Parallel deployment to ${join(", ", keys(var.deployment_configuration.accounts))} environments"
         "Type"       = "Parallel"
         "Next"       = "Raise Errors"
         "ResultPath" = "$.result"
-        "Branches" = concat([
-          {
+        "Branches" = [for branch in [
+          ! contains(keys(var.deployment_configuration.accounts), "test") ? null : {
             "StartAt" = "Bump Versions in Test"
             "States" = merge({
               "Bump Versions in Test" = {
@@ -109,9 +109,8 @@ locals {
                 "Type" : "Pass",
                 "End" : true
             } }, local.additional_states.stage)
-          }
-          ], contains(keys(var.deployment_configuration.accounts), "service") ? [
-          {
+          },
+          ! contains(keys(var.deployment_configuration.accounts), "service") ? null : {
             "StartAt" = "Deploy Service"
             "States" = {
               "Deploy Service" = {
@@ -136,8 +135,7 @@ locals {
               }
             }
           }
-        ] : [])
-      },
+      ] : branch if branch != null] },
       "Raise Errors" = {
         "Comment"  = "Raise previously caught errors, if any"
         "Type"     = "Task",
