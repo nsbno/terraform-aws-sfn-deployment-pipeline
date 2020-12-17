@@ -112,7 +112,8 @@ locals {
           lookup(var.post_deployment_states[key][i], "task_cpu", "")    = lookup(var.post_deployment_states[key][i], "task_cpu", "")
         })
       },
-      # Only suppress output from final states in parallel branches
+      # Suppress output from final states in parallel branches.
+      # This avoids a lot of duplicated content in the output JSON during an execution.
       "OutputPath"     = key == "prod" || i < length(var.post_deployment_states[key]) - 1 ? "$" : null
       "ResultPath"     = null,
       "TimeoutSeconds" = 3600
@@ -120,7 +121,7 @@ locals {
         i < length(var.post_deployment_states[key]) - 1 ? "Next" : "End"
       ) = i < length(var.post_deployment_states[key]) - 1 ? var.post_deployment_states[key][i + 1].name : true
       },
-      # Only add error catching block to parallel steps
+      # Error catching blocks are only used in parallel branches.
       key == "prod" ? {} : {
         "Catch" = [{
           "ErrorEquals" = ["States.ALL"]
