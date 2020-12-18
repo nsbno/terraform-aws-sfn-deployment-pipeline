@@ -56,7 +56,7 @@ locals {
   terraform_deployment_cmd = "cd %s && terraform init -lock-timeout=120s -no-color && %s -lock-timeout=120s -no-color"
   common_input_to_fargate_states = {
     task_execution_role_arn = var.pipeline_lambda_configuration.single_use_fargate_task.execution_role
-    credentials_secret_arn  = var.pipeline_lambda_configuration.single_use_fargate_task.dockerhub_credentials
+    credentials_secret_arn  = lookup(var.pipeline_lambda_configuration.single_use_fargate_task, "dockerhub_credentials", "")
     ecs_cluster             = var.pipeline_lambda_configuration.single_use_fargate_task.ecs_cluster
     subnets                 = var.pipeline_lambda_configuration.single_use_fargate_task.subnets
     state_machine_id        = local.state_machine_name
