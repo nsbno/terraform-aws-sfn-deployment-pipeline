@@ -1,16 +1,20 @@
 name: Tests
 on: [push]
-defaults:
-  run:
-    shell: bash
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    container: vydev/terraform:0.12.29
+    container: vydev/terraform:0.12.23
     steps:
     - uses: actions/checkout@v2
+    - name: Install Bash
+      run: |
+        if ! bash --version; then
+          echo "Installing bash"
+          apk add bash
+        fi
     - name: Verify State Machine Definitions
+      shell: bash
       run: |
         #!/usr/bin/env bash
         set -euo pipefail
