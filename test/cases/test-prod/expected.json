@@ -1,0 +1,138 @@
+{
+  "Comment": "A deployment pipeline implemented as a state machine",
+  "StartAt": "Get Latest Artifact Versions",
+  "States": {
+    "Bump Versions in Prod": {
+      "Comment": "Update SSM parameters in prod environment to latest versions of applications artifacts",
+      "Next": "Deploy Prod",
+      "Parameters": {
+        "FunctionName": "set-version",
+        "Payload": {
+          "account_id": "456789012345",
+          "ecr_applications": [],
+          "frontend_applications": [],
+          "frontend_s3_bucket": "",
+          "frontend_s3_prefix": "",
+          "get_versions": false,
+          "lambda_applications": [],
+          "lambda_s3_bucket": "",
+          "lambda_s3_prefix": "",
+          "role_to_assume": "set-version-role",
+          "set_versions": true,
+          "ssm_prefix": "example",
+          "versions.$": "$.versions"
+        }
+      },
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "ResultPath": null,
+      "Type": "Task"
+    },
+    "Bump Versions in Test": {
+      "Comment": "Update SSM parameters in test environment to latest versions of applications artifacts",
+      "Next": "Deploy Test",
+      "Parameters": {
+        "FunctionName": "set-version",
+        "Payload": {
+          "account_id": "234567890123",
+          "ecr_applications": [],
+          "frontend_applications": [],
+          "frontend_s3_bucket": "",
+          "frontend_s3_prefix": "",
+          "get_versions": false,
+          "lambda_applications": [],
+          "lambda_s3_bucket": "",
+          "lambda_s3_prefix": "",
+          "role_to_assume": "set-version-role",
+          "set_versions": true,
+          "ssm_prefix": "example",
+          "versions.$": "$.versions"
+        }
+      },
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "ResultPath": null,
+      "Type": "Task"
+    },
+    "Deploy Prod": {
+      "End": true,
+      "Parameters": {
+        "FunctionName": "single-use-fargate-task",
+        "Payload": {
+          "cmd_to_run": "temp_role=$(aws sts assume-role --role-arn arn:aws:iam::456789012345:role/deployment-role --role-session-name deployment-from-service-account) && aws configure set profile.deployment.aws_access_key_id \"$(echo $temp_role | jq -r .Credentials.AccessKeyId)\" && aws configure set profile.deployment.aws_secret_access_key \"$(echo $temp_role | jq -r .Credentials.SecretAccessKey)\" && aws configure set profile.deployment.aws_session_token \"$(echo $temp_role | jq -r .Credentials.SessionToken)\" && export AWS_PROFILE=deployment && cd terraform/prod && terraform init -lock-timeout=120s -no-color && terraform apply -auto-approve -lock-timeout=120s -no-color",
+          "content.$": "$.deployment_package",
+          "credentials_secret_arn": "",
+          "ecs_cluster": "cluster",
+          "image": "vydev/terraform:0.12.29",
+          "state.$": "$$.State.Name",
+          "state_machine_id": "example-state-machine",
+          "subnets": [
+            "subnet-1",
+            "subnet-2",
+            "subnet-3"
+          ],
+          "task_execution_role_arn": "execution-role",
+          "task_role_arn": "task-role",
+          "token.$": "$$.Task.Token"
+        }
+      },
+      "Resource": "arn:aws:states:::lambda:invoke.waitForTaskToken",
+      "ResultPath": null,
+      "TimeoutSeconds": 3600,
+      "Type": "Task"
+    },
+    "Deploy Test": {
+      "Next": "Bump Versions in Prod",
+      "Parameters": {
+        "FunctionName": "single-use-fargate-task",
+        "Payload": {
+          "cmd_to_run": "temp_role=$(aws sts assume-role --role-arn arn:aws:iam::234567890123:role/deployment-role --role-session-name deployment-from-service-account) && aws configure set profile.deployment.aws_access_key_id \"$(echo $temp_role | jq -r .Credentials.AccessKeyId)\" && aws configure set profile.deployment.aws_secret_access_key \"$(echo $temp_role | jq -r .Credentials.SecretAccessKey)\" && aws configure set profile.deployment.aws_session_token \"$(echo $temp_role | jq -r .Credentials.SessionToken)\" && export AWS_PROFILE=deployment && cd terraform/test && terraform init -lock-timeout=120s -no-color && terraform apply -auto-approve -lock-timeout=120s -no-color",
+          "content.$": "$.deployment_package",
+          "credentials_secret_arn": "",
+          "ecs_cluster": "cluster",
+          "image": "vydev/terraform:0.12.29",
+          "state.$": "$$.State.Name",
+          "state_machine_id": "example-state-machine",
+          "subnets": [
+            "subnet-1",
+            "subnet-2",
+            "subnet-3"
+          ],
+          "task_execution_role_arn": "execution-role",
+          "task_role_arn": "task-role",
+          "token.$": "$$.Task.Token"
+        }
+      },
+      "Resource": "arn:aws:states:::lambda:invoke.waitForTaskToken",
+      "ResultPath": null,
+      "TimeoutSeconds": 3600,
+      "Type": "Task"
+    },
+    "Get Latest Artifact Versions": {
+      "Comment": "Get the latest versions of application artifacts in S3 and ECR",
+      "Next": "Bump Versions in Test",
+      "Parameters": {
+        "FunctionName": "set-version",
+        "Payload": {
+          "ecr_applications": [],
+          "frontend_applications": [],
+          "frontend_s3_bucket": "",
+          "frontend_s3_prefix": "",
+          "get_versions": true,
+          "lambda_applications": [],
+          "lambda_s3_bucket": "",
+          "lambda_s3_prefix": "",
+          "role_to_assume": "set-version-role",
+          "set_versions": false,
+          "ssm_prefix": "example"
+        }
+      },
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "ResultPath": "$.versions",
+      "ResultSelector": {
+        "ecr.$": "$.Payload.ecr",
+        "frontend.$": "$.Payload.frontend",
+        "lambda.$": "$.Payload.lambda"
+      },
+      "Type": "Task"
+    }
+  }
+}
