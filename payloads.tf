@@ -31,7 +31,7 @@ locals {
     role_to_assume     = var.pipeline_lambda_configuration.set_version.role
     }, [for key in ["ecr", "frontend", "lambda"] : {
       "${key}_applications" = [
-        for app in lookup(var.pipeline_lambda_configuration.set_version.applications, key, []) : try({
+        for app in lookup(lookup(var.pipeline_lambda_configuration.set_version, "applications", {}), key, []) : try({
           name        = app.name
           tag_filters = lookup(app, "tag_filters", ["${lookup(var.pipeline_lambda_configuration.set_version, "default_branch", "master")}-branch"])
           }, {
