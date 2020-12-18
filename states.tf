@@ -1,8 +1,22 @@
 locals {
-  state_definition = {
+  non_empty_states = [for state in local.states : state if length(state) > 0]
+  state_machine_definition = {
     "Comment" = "A deployment pipeline implemented as a state machine"
     "StartAt" = "Get Latest Artifact Versions"
-    "States" = merge({
+    # Define all states, and filter out states that are set to `null`
+    "States" = { for i in range(length(local.non_empty_states)) : keys(local.non_empty_states[i])[0] => merge(local.non_empty_states[i][keys(local.non_empty_states[i])[0]], {
+      i < length(local.non_empty_states) - 1 ? "Next" : "End" = i < length(local.non_empty_states) - 1 ? keys(local.non_empty_states[i + 1])[0] : true
+    }) }
+  }
+}
+
+
+
+locals {
+  # Create an ordered list of all states to include
+  states = concat([
+    # Initial state -- we always include this
+    {
       "Get Latest Artifact Versions" = {
         "Comment"  = "Get the latest versions of application artifacts in S3 and ECR"
         "Type"     = "Task"
@@ -17,167 +31,104 @@ locals {
           "lambda.$"   = "$.Payload.lambda"
         }
         "ResultPath" = "$.versions",
-        "Next"       = "Parallel Deployment"
       }
-      "Parallel Deployment" = {
-        "Comment"    = "Parallel deployment to ${join(", ", keys(var.deployment_configuration.accounts))} environments"
-        "Type"       = "Parallel"
-        "Next"       = "Raise Errors"
-        "ResultPath" = "$.result"
-        "Branches" = [for branch in [
-          ! contains(keys(var.deployment_configuration.accounts), "test") ? null : {
-            "StartAt" = "Bump Versions in Test"
+    }],
+    # A parallel state will only be created if there are two or more parallel deployments
+    [
+      length(local.parallel_deployment_accounts) == 0 ? {} :
+      {
+        "Parallel Deployment" = {
+          "Comment"    = "Parallel deployment to ${join(", ", keys(local.parallel_deployment_accounts))} environments"
+          "Type"       = "Parallel"
+          "ResultPath" = "$.result"
+          # Perform a reverse sort in order to get the branches in the order `test, service, stage` for visual purposes
+          "Branches" = [for account_name in reverse(sort(keys(local.parallel_deployment_accounts))) : {
+            "StartAt" = "Bump Versions in ${title(account_name)}"
             "States" = merge({
-              "Bump Versions in Test" = {
-                "Comment"  = "Update SSM parameters in test environment to latest versions of applications artifacts",
+              "Bump Versions in ${title(account_name)}" = {
+                "Comment"  = "Update SSM parameters in ${account_name} environment to latest versions of applications artifacts",
                 "Type"     = "Task",
                 "Resource" = "arn:aws:states:::lambda:invoke"
                 "Parameters" = {
                   "FunctionName" = var.pipeline_lambda_configuration.set_version.function_name
-                  "Payload"      = local.input_to_bump_versions_in_test
+                  "Payload"      = local.input_to_set_version[account_name]
                 }
                 "Catch" = [{
                   "ErrorEquals" = ["States.ALL"]
-                  "Next"        = "Catch Test Errors"
+                  "Next"        = "Catch ${title(account_name)} Errors"
                 }]
                 "ResultPath" = null
-                "Next"       = "Deploy Test"
+                "Next"       = "Deploy ${title(account_name)}"
               }
-              "Deploy Test" = {
+              "Deploy ${title(account_name)}" = {
                 "Type"     = "Task"
                 "Resource" = "arn:aws:states:::lambda:invoke.waitForTaskToken"
                 "Parameters" = {
                   "FunctionName" = var.pipeline_lambda_configuration.single_use_fargate_task.function_name
-                  "Payload"      = local.input_to_deploy_test
+                  "Payload"      = local.input_to_deploy_states[account_name]
                 },
                 "Catch" = [{
                   "ErrorEquals" = ["States.ALL"]
-                  "Next"        = "Catch Test Errors"
+                  "Next"        = "Catch ${title(account_name)} Errors"
                 }]
-                "OutputPath"     = length(lookup(var.post_deployment_states, "test", [])) > 0 ? "$" : null
+                "OutputPath"     = length(lookup(var.post_deployment_states, account_name, [])) > 0 ? "$" : null
                 "ResultPath"     = null,
                 "TimeoutSeconds" = 3600
                 (
-                  length(lookup(var.post_deployment_states, "test", []))
+                  length(lookup(var.post_deployment_states, account_name, []))
                   > 0 ? "Next" : "End"
-                ) = length(lookup(var.post_deployment_states, "test", [])) > 0 ? var.post_deployment_states["test"][0].name : true
+                ) = length(lookup(var.post_deployment_states, account_name, [])) > 0 ? var.post_deployment_states[account_name][0].name : true
               }
-              "Catch Test Errors" = {
+              "Catch ${title(account_name)} Errors" = {
                 "Type" = "Pass"
                 "End"  = true
               }
-            }, local.additional_states.test)
-          },
-          {
-            "StartAt" = "Bump Versions in Stage"
-            "States" = merge({
-              "Bump Versions in Stage" = {
-                "Comment"  = "Update SSM parameters in stage environment to latest versions of applications artifacts",
-                "Type"     = "Task",
-                "Resource" = "arn:aws:states:::lambda:invoke"
-                "Parameters" = {
-                  "FunctionName" = var.pipeline_lambda_configuration.set_version.function_name
-                  "Payload"      = local.input_to_bump_versions_in_stage
-                }
-                "Catch" = [{
-                  "ErrorEquals" = ["States.ALL"]
-                  "Next"        = "Catch Stage Errors"
-                }]
-                "ResultPath" = null,
-                "Next"       = "Deploy Stage"
-              }
-              "Deploy Stage" = {
-                "Type"     = "Task",
-                "Resource" = "arn:aws:states:::lambda:invoke.waitForTaskToken",
-                "Parameters" = {
-                  "FunctionName" = var.pipeline_lambda_configuration.single_use_fargate_task.function_name
-                  "Payload"      = local.input_to_deploy_stage
-                }
-                "Catch" = [{
-                  "ErrorEquals" = ["States.ALL"]
-                  "Next"        = "Catch Stage Errors"
-                }]
-                "OutputPath"     = length(lookup(var.post_deployment_states, "stage", [])) > 0 ? "$" : null
-                "ResultPath"     = null,
-                "TimeoutSeconds" = 3600
-                (
-                  length(lookup(var.post_deployment_states, "stage", []))
-                  > 0 ? "Next" : "End"
-                ) = length(lookup(var.post_deployment_states, "stage", [])) > 0 ? var.post_deployment_states["stage"][0].name : true
-              }
-              "Catch Stage Errors" : {
-                "Type" : "Pass",
-                "End" : true
-            } }, local.additional_states.stage)
-          },
-          ! contains(keys(var.deployment_configuration.accounts), "service") ? null : {
-            "StartAt" = "Deploy Service"
-            "States" = {
-              "Deploy Service" = {
-                "Type"     = "Task",
-                "Resource" = "arn:aws:states:::lambda:invoke.waitForTaskToken",
-                "Parameters" = {
-                  "FunctionName" = var.pipeline_lambda_configuration.single_use_fargate_task.function_name
-                  "Payload"      = local.input_to_deploy_service
-                }
-                "Catch" = [{
-                  "ErrorEquals" = ["States.ALL"]
-                  "Next"        = "Catch Service Errors"
-                }]
-                "ResultPath"     = null
-                "OutputPath"     = null
-                "TimeoutSeconds" = 3600
-                "End"            = true
-              }
-              "Catch Service Errors" : {
-                "Type" : "Pass",
-                "End" : true
-              }
+            }, local.additional_parallel_states[account_name])
+            }
+          ]
+        }
+      },
+      length(local.parallel_deployment_accounts) == 0 ? {} :
+      {
+        "Raise Errors" = {
+          "Comment"  = "Raise previously caught errors, if any"
+          "Type"     = "Task",
+          "Resource" = "arn:aws:states:::lambda:invoke.waitForTaskToken"
+          "Parameters" = {
+            "FunctionName" = var.pipeline_lambda_configuration.error_catcher.function_name
+            "Payload" = {
+              "token.$" = "$$.Task.Token"
+              "input.$" = "$.result"
             }
           }
-      ] : branch if branch != null] },
-      "Raise Errors" = {
-        "Comment"  = "Raise previously caught errors, if any"
-        "Type"     = "Task",
-        "Resource" = "arn:aws:states:::lambda:invoke.waitForTaskToken"
-        "Parameters" = {
-          "FunctionName" = var.pipeline_lambda_configuration.error_catcher.function_name
-          "Payload" = {
-            "token.$" = "$$.Task.Token"
-            "input.$" = "$.result"
+          "ResultPath"     = "$.errors_found",
+          "TimeoutSeconds" = 3600
+        }
+        # Reverse alphabetically to make sure deployment to prod is run last
+        }], flatten([for account_name in reverse(sort(setsubtract(keys(local.accounts), keys(local.parallel_deployment_accounts)))) : [{
+          "Bump Versions in ${title(account_name)}" = {
+            "Comment"  = "Update SSM parameters in ${account_name} environment to latest versions of applications artifacts",
+            "Type"     = "Task"
+            "Resource" = "arn:aws:states:::lambda:invoke",
+            "Parameters" = {
+              "FunctionName" = var.pipeline_lambda_configuration.set_version.function_name
+              "Payload"      = local.input_to_set_version[account_name]
+            },
+            "ResultPath" = null,
           }
-        }
-        "ResultPath"     = "$.errors_found",
-        "TimeoutSeconds" = 3600
-        "Next"           = "Bump Versions in Prod"
-      }
-      "Bump Versions in Prod" = {
-        "Comment"  = "Update SSM parameters in prod environment to latest versions of applications artifacts",
-        "Type"     = "Task"
-        "Resource" = "arn:aws:states:::lambda:invoke",
-        "Parameters" = {
-          "FunctionName" = var.pipeline_lambda_configuration.set_version.function_name
-          "Payload"      = local.input_to_bump_versions_in_prod
-        },
-        "ResultPath" = null,
-        "Next"       = "Deploy Prod"
-      }
-      "Deploy Prod" = {
-        "Type"     = "Task",
-        "Resource" = "arn:aws:states:::lambda:invoke.waitForTaskToken"
-        "Parameters" = {
-          "FunctionName" = var.pipeline_lambda_configuration.single_use_fargate_task.function_name
-          "Payload"      = local.input_to_deploy_prod
-        }
-        "ResultPath"     = null
-        "ResultPath"     = null,
-        "TimeoutSeconds" = 3600
-        (
-          length(lookup(var.post_deployment_states, "prod", []))
-          > 0 ? "Next" : "End"
-        ) = length(lookup(var.post_deployment_states, "prod", [])) > 0 ? var.post_deployment_states["prod"][0].name : true
-      }
-    }, local.additional_states.prod)
-  }
+          }, {
+          "Deploy ${title(account_name)}" = {
+            "Type"     = "Task",
+            "Resource" = "arn:aws:states:::lambda:invoke.waitForTaskToken"
+            "Parameters" = {
+              "FunctionName" = var.pipeline_lambda_configuration.single_use_fargate_task.function_name
+              "Payload"      = local.input_to_deploy_states[account_name]
+            }
+            "ResultPath"     = null
+            "TimeoutSeconds" = 3600
+          }
+          },
+          [for name, state in local.additional_states[account_name] : { "${name}" = state }]
+    ]])
+  )
 }
-
