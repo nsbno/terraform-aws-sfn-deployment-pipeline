@@ -1,19 +1,34 @@
 locals {
-  non_empty_states = [for state in local.states : state if length(state) > 0]
+  # The state machine definition that we will jsonencode and use
   state_machine_definition = {
     "Comment" = "A deployment pipeline implemented as a state machine"
     "StartAt" = "Get Latest Artifact Versions"
-    # Define all states, and filter out states that are set to `null`
-    "States" = { for i in range(length(local.non_empty_states)) : keys(local.non_empty_states[i])[0] => merge(local.non_empty_states[i][keys(local.non_empty_states[i])[0]], {
-      i < length(local.non_empty_states) - 1 ? "Next" : "End" = i < length(local.non_empty_states) - 1 ? keys(local.non_empty_states[i + 1])[0] : true
-    }) }
+    # Define all states in the correct order
+    "States" = {
+      for i in range(length(local.states)) :
+      keys(local.states[i])[0] => merge(
+        local.states[i][keys(local.states[i])[0]],
+        {
+          # Determine if we have reached the final state or not
+          (
+            i < length(local.states) - 1
+            ? "Next"
+            : "End"
+            ) = (
+            i < length(local.states) - 1
+            ? keys(local.states[i + 1])[0]
+            : true
+          )
+        }
+      )
+    }
   }
 }
 
 
 locals {
-  # Create an ordered list of all states to include
-  states = flatten([
+  # Create an ordered list of all states to include, and filter out empty objects -- that is, states that were determined to be excluded.
+  states = [for state in flatten([
     # Initial state -- we always include this
     {
       "Get Latest Artifact Versions" = {
@@ -86,6 +101,7 @@ locals {
         ]
       }
     },
+    # We only need the `Raise Errors` state if we have a parallel state.
     length(local.parallel_deployment_accounts) == 0 ? {} :
     {
       "Raise Errors" = {
@@ -130,7 +146,7 @@ locals {
       [for name, state in local.additional_states[account_name] : { "${name}" = state }]
       ]
     ]
-  ])
+  ]) : state if length(state) > 0]
 }
 
 

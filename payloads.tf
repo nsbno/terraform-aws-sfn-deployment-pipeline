@@ -11,8 +11,13 @@ locals {
     for name in setintersection(["test", "stage", "prod", "service"], keys(var.deployment_configuration.accounts)) :
     name => var.deployment_configuration.accounts[name]
   }
-  parallel_deployment_accounts = length(setsubtract(keys(local.accounts), ["prod"])) > 1 ? { for name, account in local.accounts : name => account if contains(["test", "stage", "service"], name) } : {}
+  parallel_deployment_accounts = (
+    length(setsubtract(keys(local.accounts), ["prod"])) > 1
+    ? { for name, account in local.accounts : name => account if contains(["test", "stage", "service"], name) }
+    : {}
+  )
 }
+
 
 ##################################
 #                                #
@@ -20,32 +25,42 @@ locals {
 #                                #
 ##################################
 locals {
-  input_to_get_latest_artifact_versions = merge({
-    get_versions       = true
-    set_versions       = false
-    lambda_s3_bucket   = lookup(var.pipeline_lambda_configuration.set_version, "lambda_s3_bucket", "")
-    lambda_s3_prefix   = lookup(var.pipeline_lambda_configuration.set_version, "lambda_s3_prefix", "")
-    frontend_s3_bucket = lookup(var.pipeline_lambda_configuration.set_version, "frontend_s3_bucket", "")
-    frontend_s3_prefix = lookup(var.pipeline_lambda_configuration.set_version, "frontend_s3_prefix", "")
-    ssm_prefix         = var.pipeline_lambda_configuration.set_version.ssm_prefix
-    role_to_assume     = var.pipeline_lambda_configuration.set_version.role
-    }, [for key in ["ecr", "frontend", "lambda"] : {
-      "${key}_applications" = [
-        for app in lookup(lookup(var.pipeline_lambda_configuration.set_version, "applications", {}), key, []) : try({
-          name        = app.name
-          tag_filters = lookup(app, "tag_filters", ["${lookup(var.pipeline_lambda_configuration.set_version, "default_branch", "master")}-branch"])
-          }, {
-          name        = app
-          tag_filters = ["${lookup(var.pipeline_lambda_configuration.set_version, "default_branch", "master")}-branch"]
-        })
-      ]
-  }]...)
-  input_to_set_version = { for name, account in local.accounts : name => merge(local.input_to_get_latest_artifact_versions, {
-    account_id   = account.id
-    get_versions = false
-    set_versions = ! lookup(account, "dry_run", false)
-    "versions.$" = "$.versions"
-  }) }
+  input_to_get_latest_artifact_versions = merge(
+    {
+      get_versions       = true
+      set_versions       = false
+      lambda_s3_bucket   = lookup(var.pipeline_lambda_configuration.set_version, "lambda_s3_bucket", "")
+      lambda_s3_prefix   = lookup(var.pipeline_lambda_configuration.set_version, "lambda_s3_prefix", "")
+      frontend_s3_bucket = lookup(var.pipeline_lambda_configuration.set_version, "frontend_s3_bucket", "")
+      frontend_s3_prefix = lookup(var.pipeline_lambda_configuration.set_version, "frontend_s3_prefix", "")
+      ssm_prefix         = var.pipeline_lambda_configuration.set_version.ssm_prefix
+      role_to_assume     = var.pipeline_lambda_configuration.set_version.role
+    },
+    [
+      for key in ["ecr", "frontend", "lambda"] :
+      {
+        "${key}_applications" = [
+          for app in lookup(lookup(var.pipeline_lambda_configuration.set_version, "applications", {}), key, []) : try({
+            name        = app.name
+            tag_filters = lookup(app, "tag_filters", ["${lookup(var.pipeline_lambda_configuration.set_version, "default_branch", "master")}-branch"])
+            }, {
+            name        = app
+            tag_filters = ["${lookup(var.pipeline_lambda_configuration.set_version, "default_branch", "master")}-branch"]
+          })
+        ]
+      }
+  ]...)
+  input_to_set_version = {
+    for name, account in local.accounts : name => merge(
+      local.input_to_get_latest_artifact_versions,
+      {
+        account_id   = account.id
+        get_versions = false
+        set_versions = ! lookup(account, "dry_run", false)
+        "versions.$" = "$.versions"
+      }
+    )
+  }
 }
 
 
@@ -66,15 +81,21 @@ locals {
     "token.$"               = "$$.Task.Token",
     "state.$"               = "$$.State.Name"
   }
-  common_input_to_deploy_states = merge(local.common_input_to_fargate_states, {
-    image         = var.deployment_configuration.image
-    task_role_arn = var.deployment_configuration.task_role
-    "content.$"   = "$.deployment_package"
-  })
+  common_input_to_deploy_states = merge(
+    local.common_input_to_fargate_states,
+    {
+      image         = var.deployment_configuration.image
+      task_role_arn = var.deployment_configuration.task_role
+      "content.$"   = "$.deployment_package"
+    }
+  )
   # Set up shell commands for the deployment states
-  # service is optional account
-  #
-  input_to_deploy_states = { for name, account in local.accounts : name => merge(local.common_input_to_deploy_states, {
-    cmd_to_run = "${format(local.assume_role_cmd, "arn:aws:iam::${account.id}:role/${var.deployment_configuration.deployment_role}")} && ${format(local.terraform_deployment_cmd, lookup(account, "path", "terraform/${name}"), lookup(account, "dry_run", false) ? "terraform plan" : "terraform apply -auto-approve")}"
-  }) }
+  input_to_deploy_states = {
+    for name, account in local.accounts : name => merge(
+      local.common_input_to_deploy_states,
+      {
+        cmd_to_run = "${format(local.assume_role_cmd, "arn:aws:iam::${account.id}:role/${var.deployment_configuration.deployment_role}")} && ${format(local.terraform_deployment_cmd, lookup(account, "path", "terraform/${name}"), lookup(account, "dry_run", false) ? "terraform plan" : "terraform apply -auto-approve")}"
+      }
+    )
+  }
 }
