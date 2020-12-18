@@ -4,7 +4,9 @@
 #                                #
 ##################################
 locals {
-  state_machine_name = "${var.name_prefix}-state-machine"
+  state_machine_name               = "${var.name_prefix}-state-machine"
+  default_deploy_state_timeout     = 3600
+  default_additional_state_timeout = 3600
   accounts = {
     for name in setintersection(["test", "stage", "prod", "service"], keys(var.deployment_configuration.accounts)) :
     name => var.deployment_configuration.accounts[name]

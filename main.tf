@@ -2,9 +2,8 @@ data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
 locals {
-  current_account_id    = data.aws_caller_identity.current.account_id
-  current_region        = data.aws_region.current.name
-  default_state_timeout = 3600
+  current_account_id = data.aws_caller_identity.current.account_id
+  current_region     = data.aws_region.current.name
 }
 
 resource "aws_sfn_state_machine" "this" {
