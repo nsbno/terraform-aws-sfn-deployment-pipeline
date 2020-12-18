@@ -3,8 +3,11 @@ on: [push]
 
 jobs:
   test:
+    strategy:
+      matrix:
+        terraform-version: [0.12.23, 0.12.24, 0.12.25, 0.12.26, 0.12.27, 0.12.28, 0.12.29]
     runs-on: ubuntu-latest
-    container: vydev/terraform:0.12.23
+    container: vydev/terraform:${{ matrix.terraform-version }}
     steps:
     - uses: actions/checkout@v2
     - name: Install Bash
@@ -19,6 +22,7 @@ jobs:
         #!/usr/bin/env bash
         set -euo pipefail
         IFS=$'\n\t'
+        echo "Running tests using Terraform ${{ matrix.terraform-version }}"
         diffs=()
         cd test
         cp ../{payloads,states,variables}.tf .
