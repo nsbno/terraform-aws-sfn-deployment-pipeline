@@ -132,3 +132,75 @@ locals {
     ]
   ])
 }
+
+
+locals {
+  # Dynamically create post deployment states to inject into the AWS Step Functions state machine definition
+  additional_states = { for key in setsubtract(keys(local.accounts), keys(local.parallel_deployment_accounts)) : key =>
+    { for i in range(length(lookup(var.post_deployment_states, key, []))) : var.post_deployment_states[key][i].name => {
+      "Type"     = "Task"
+      "Resource" = "arn:aws:states:::lambda:invoke.waitForTaskToken"
+      "Parameters" = {
+        "FunctionName" = var.pipeline_lambda_configuration.single_use_fargate_task.function_name
+        "Payload" = merge(local.common_input_to_fargate_states, {
+          cmd_to_run  = lookup(var.post_deployment_states[key][i], "cmd_to_run", "")
+          mountpoints = lookup(var.post_deployment_states[key][i], "mountpoints", {})
+          # Check if Amazon States Language notation has been used
+          # This is required as the language does not allow both `$.content` and `content` to be passed in.
+          (
+            lookup(var.post_deployment_states[key][i], "$.content", "")
+            != "" ?
+            "$.content" : "content"
+          )             = lookup(var.post_deployment_states[key][i], "$.content", lookup(var.post_deployment_states[key][i], "content", ""))
+          task_role_arn = var.post_deployment_states[key][i].task_role
+          image         = var.post_deployment_states[key][i].image
+          # Conditionally include parameters
+          lookup(var.post_deployment_states[key][i], "task_memory", "") = lookup(var.post_deployment_states[key][i], "task_memory", "")
+          lookup(var.post_deployment_states[key][i], "task_cpu", "")    = lookup(var.post_deployment_states[key][i], "task_cpu", "")
+        })
+      },
+      "ResultPath"     = null,
+      "TimeoutSeconds" = local.default_additional_state_timeout
+      }
+    }
+  }
+  # Dynamically create post deployment states to inject into the AWS Step Functions state machine definition
+  additional_parallel_states = { for key in keys(local.parallel_deployment_accounts) : key =>
+    { for i in range(length(lookup(var.post_deployment_states, key, []))) : var.post_deployment_states[key][i].name => {
+      "Type"     = "Task"
+      "Resource" = "arn:aws:states:::lambda:invoke.waitForTaskToken"
+      "Parameters" = {
+        "FunctionName" = var.pipeline_lambda_configuration.single_use_fargate_task.function_name
+        "Payload" = merge(local.common_input_to_fargate_states, {
+          cmd_to_run  = lookup(var.post_deployment_states[key][i], "cmd_to_run", "")
+          mountpoints = lookup(var.post_deployment_states[key][i], "mountpoints", {})
+          # Check if Amazon States Language notation has been used
+          # This is required as the language does not allow both `$.content` and `content` to be passed in.
+          (
+            lookup(var.post_deployment_states[key][i], "$.content", "")
+            != "" ?
+            "$.content" : "content"
+          )             = lookup(var.post_deployment_states[key][i], "$.content", lookup(var.post_deployment_states[key][i], "content", ""))
+          task_role_arn = var.post_deployment_states[key][i].task_role
+          image         = var.post_deployment_states[key][i].image
+          # Conditionally include parameters
+          lookup(var.post_deployment_states[key][i], "task_memory", "") = lookup(var.post_deployment_states[key][i], "task_memory", "")
+          lookup(var.post_deployment_states[key][i], "task_cpu", "")    = lookup(var.post_deployment_states[key][i], "task_cpu", "")
+        })
+      },
+      # Suppress output from final states in parallel branches.
+      # This avoids a lot of duplicated content in the output JSON during an execution.
+      "OutputPath" = i < length(var.post_deployment_states[key]) - 1 ? "$" : null
+      (
+        i < length(var.post_deployment_states[key]) - 1 ? "Next" : "End"
+      )                = i < length(var.post_deployment_states[key]) - 1 ? var.post_deployment_states[key][i + 1].name : true
+      "ResultPath"     = null,
+      "TimeoutSeconds" = local.default_additional_state_timeout
+      "Catch" = [{
+        "ErrorEquals" = ["States.ALL"]
+        "Next"        = "Catch ${title(key)} Errors"
+      }]
+      }
+    }
+  }
+}
