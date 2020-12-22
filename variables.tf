@@ -78,7 +78,7 @@ image: The image to use.
 task_role: The name of a task role to use for the Fargate task.
 assume_role: Optional ARN of role to assume before running shell command.
 cmd_to_run: Optional shell command to run inside the container.
-content: Optional S3 ZIP file to mount ($. notation can be used).
+content: Optional S3 ZIP file to mount (Amazon States Language notation can be used, e.g., `content.$`).
 task_memory: Optional string of amount of task memory to allocate.
 task_cpu: Optional string of amount of task cpu to allocate.
 mountpoints: Optional map of mountpoints and S3 ZIP files to mount. Conflicts with `content`.

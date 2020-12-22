@@ -162,12 +162,12 @@ locals {
           cmd_to_run  = lookup(var.post_deployment_states[key][i], "cmd_to_run", "")
           mountpoints = lookup(var.post_deployment_states[key][i], "mountpoints", {})
           # Check if Amazon States Language notation has been used
-          # This is required as the language does not allow both `$.content` and `content` to be passed in.
+          # This is required as the language does not allow both `content.$` and `content` to be passed in.
           (
-            lookup(var.post_deployment_states[key][i], "$.content", "")
+            lookup(var.post_deployment_states[key][i], "content.$", "")
             != "" ?
-            "$.content" : "content"
-          )             = lookup(var.post_deployment_states[key][i], "$.content", lookup(var.post_deployment_states[key][i], "content", ""))
+            "content.$" : "content"
+          )             = lookup(var.post_deployment_states[key][i], "content.$", lookup(var.post_deployment_states[key][i], "content", ""))
           task_role_arn = var.post_deployment_states[key][i].task_role
           image         = var.post_deployment_states[key][i].image
           # Conditionally include parameters
