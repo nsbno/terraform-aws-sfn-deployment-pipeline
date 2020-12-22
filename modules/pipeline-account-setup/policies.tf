@@ -24,17 +24,7 @@ data "aws_iam_policy_document" "role_assume_for_set_version" {
   statement {
     effect    = "Allow"
     actions   = ["sts:AssumeRole"]
-    resources = ["arn:aws:iam::*:role/${module.roles.set_version_role_name}"]
-    condition {
-      test     = "StringEquals"
-      variable = "aws:ResourceTag/deployment-pipeline"
-      values   = ["true"]
-    }
-    condition {
-      test     = "StringEquals"
-      variable = "aws:ResourceTag/application"
-      values   = [var.name_prefix]
-    }
+    resources = var.role_arns_for_set_version
   }
 }
 
@@ -52,17 +42,7 @@ data "aws_iam_policy_document" "role_assume_for_fargate_task" {
   statement {
     effect    = "Allow"
     actions   = ["sts:AssumeRole"]
-    resources = ["arn:aws:iam::*:role/${module.roles.deployment_role_name}"]
-    condition {
-      test     = "StringEquals"
-      variable = "aws:ResourceTag/deployment-pipeline"
-      values   = ["true"]
-    }
-    condition {
-      test     = "StringEquals"
-      variable = "aws:ResourceTag/application"
-      values   = [var.name_prefix]
-    }
+    resources = var.role_arns_for_fargate_task
   }
 }
 
@@ -70,7 +50,7 @@ data "aws_iam_policy_document" "s3_for_fargate_task" {
   statement {
     effect  = "Allow"
     actions = ["s3:Get*", "s3:List*"]
-    resources = flatten([for arn in var.artifact_bucket_arns : [
+    resources = flatten([for arn in var.bucket_arns_for_fargate_task : [
       arn, "${arn}/*"
     ]])
   }
@@ -101,11 +81,6 @@ data "aws_iam_policy_document" "task_status_for_fargate_task" {
       "states:SendTaskSuccess",
       "states:SendTaskFailure"
     ]
-    condition {
-      test     = "StringEquals"
-      variable = "aws:ResourceTag/application"
-      values   = [var.name_prefix]
-    }
     resources = local.state_machine_arns
   }
 }

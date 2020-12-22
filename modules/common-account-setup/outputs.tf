@@ -13,3 +13,7 @@ output "set_version_role_name" {
 output "set_version_role_arn" {
   value = aws_iam_role.set_version.arn
 }
+
+output "set_version_ssm_prefix" {
+  value = local.ssm_prefix
+}
