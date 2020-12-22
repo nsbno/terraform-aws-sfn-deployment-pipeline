@@ -188,7 +188,13 @@ locals {
       "Parameters" = {
         "FunctionName" = var.pipeline_lambda_configuration.single_use_fargate_task.function_name
         "Payload" = merge(local.common_input_to_fargate_states, {
-          cmd_to_run  = lookup(var.post_deployment_states[key][i], "cmd_to_run", "")
+          # Add shell command for assuming role if the ARN of a role is passed in
+          cmd_to_run = join(" && ", [for cmd in [
+            lookup(var.post_deployment_states[key][i], "assume_role", "") != ""
+            ? "${format(local.assume_role_cmd, var.post_deployment_states[key][i].assume_role)}"
+            : null, lookup(var.post_deployment_states[key][i], "cmd_to_run", "")
+            ] : cmd if cmd != null
+          ])
           mountpoints = lookup(var.post_deployment_states[key][i], "mountpoints", {})
           # Check if Amazon States Language notation has been used
           # This is required as the language does not allow both `$.content` and `content` to be passed in.

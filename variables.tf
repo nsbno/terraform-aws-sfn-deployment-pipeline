@@ -76,7 +76,8 @@ A Fargate state is defined as an object:
 name: The name of the state.
 image: The image to use.
 task_role: The name of a task role to use for the Fargate task.
-cmd_to_run: Optional command to run inside the container.
+assume_role: Optional ARN of role to assume before running shell command.
+cmd_to_run: Optional shell command to run inside the container.
 content: Optional S3 ZIP file to mount ($. notation can be used).
 task_memory: Optional string of amount of task memory to allocate.
 task_cpu: Optional string of amount of task cpu to allocate.
