@@ -5,16 +5,16 @@ variable "name_prefix" {
 
 variable "deployment_configuration" {
   description = <<DOC
-The configuration for the deployment steps (e.g., `Deploy Test`) in the pipeline.
+The configuration for the Terraform deployment states (e.g., `Deploy Test`) in the pipeline.
 ---
 deployment_role: The name of a role to assume during a deployment (e.g., a cross-account role).
-task_role: The name of a task role to use for the deployment Fargate task.
+task_role: The name of a task role to use for the single-use deployment Fargate tasks.
 image: The Docker image to use during a deployment (e.g., `vydev/terraform:0.12.29`).
-accounts: An object that contains information about the accounts to deploy to. The `service` account can be omitted to only deploy to `test`, `stage` and `prod`.
+accounts: An object that describes which accounts to deploy to. At least one of the keys `test`, `stage`, `prod` or `service` is required.
   service: An account object.
     id: The account id.
     path: Optional path to Terraform folder (e.g., `terraform/custom`).
-    dry_run: Optional boolean that determines if the pipeline should do a dry-run of the deployment or not -- where a dry-run means running `terraform plan` instead of `terraform apply`, and not updating the SSM version parameters (defaults to false).
+    dry_run: Optional boolean that determines if the pipeline should do a dry-run of the deployment or not -- where a dry-run means running `terraform plan` instead of `terraform apply`, and not updating the SSM version parameters. (Defaults to false).
   test: Same account object as above.
   stage: Same account object as above.
   prod: Same account object as above.
