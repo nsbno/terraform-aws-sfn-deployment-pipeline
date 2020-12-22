@@ -33,7 +33,9 @@ jobs:
           terraform apply -auto-approve
           res="$(diff <(jq -S . expected.json) <(jq -S . generated.json) || true)"
           if [ -n "$res" ]; then
+            diffs+=("--- TEST RESULTS FOR '$test_case' ---")
             diffs+=("$res")
+            diffs+=("")
           fi
         done
         if [ "${#diffs[@]}" -gt 0 ]; then
