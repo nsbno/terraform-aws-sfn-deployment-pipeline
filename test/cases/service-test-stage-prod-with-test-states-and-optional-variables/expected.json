@@ -454,7 +454,7 @@
         "Payload": {
           "": "",
           "cmd_to_run": "echo Smoke Tests",
-          "content": "",
+          "content.$": "$.deployment_package",
           "credentials_secret_arn": "",
           "ecs_cluster": "cluster",
           "image": "vydev/awscli",
