@@ -21,10 +21,11 @@ deployment_configuration = {
 post_deployment_states = {
   stage = [
     {
-      name       = "Integration Tests"
-      image      = "vydev/awscli"
-      cmd_to_run = "echo Integration Tests"
-      task_role  = "task-role"
+      name        = "Integration Tests"
+      image       = "vydev/awscli"
+      cmd_to_run  = "echo Integration Tests"
+      assume_role = "arn:aws:iam::345678901234:role/example-integration-test-role"
+      task_role   = "task-role"
     }
   ]
   prod = [
