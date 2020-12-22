@@ -32,10 +32,11 @@ post_deployment_states = {
   ]
   prod = [
     {
-      name       = "Smoke Tests"
-      image      = "vydev/awscli"
-      cmd_to_run = "echo Smoke Tests"
-      task_role  = "task-role"
+      "content.$" = "$.deployment_package"
+      name        = "Smoke Tests"
+      image       = "vydev/awscli"
+      cmd_to_run  = "echo Smoke Tests"
+      task_role   = "task-role"
     }
   ]
 }
