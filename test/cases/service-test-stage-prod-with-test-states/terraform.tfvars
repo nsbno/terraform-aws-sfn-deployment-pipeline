@@ -24,7 +24,6 @@ post_deployment_states = {
       name        = "Integration Tests"
       image       = "vydev/awscli"
       cmd_to_run  = "echo Integration Tests"
-      assume_role = "arn:aws:iam::345678901234:role/example-integration-test-role"
       task_role   = "task-role"
     }
   ]
