@@ -40,9 +40,9 @@ set_version: A required object that contains configuration for the set-version L
   ssm_prefix: The SSM prefix to use when setting parameters in AWS Parameter Store.
   default_branch: Optional name of the branch used when looking for artifact versions (defaults to `master`).
   applications: An optional object that describes which applications the pipeline should version.
-    ecr: A list of the Docker applications to fetch and set versions for.
-    frontend: A list of the static frontend applications to fetch and set versions for.
-    lambda: A list of the Lambda applications to fetch and set versions for.
+    ecr: Optional list of names of Docker applications to fetch and set versions for.
+    frontend: Optional list of names of static frontend applications to fetch and set versions for.
+    lambda: Optional list of names of Lambda applications to fetch and set versions for.
   lambda_s3_bucket: Optional name of S3 bucket for storing Lambda artifacts.
   lambda_s3_prefix: Optional prefix to use when looking for Lambda artifacts.
   frontend_s3_bucket: Optional name of S3 buckt for storing frontend artifacts.
@@ -66,9 +66,9 @@ variable "post_deployment_states" {
   description = <<DOC
 Optional Fargate states to run after successful deployments (e.g., `Integration Tests`).
 ---
-test: An optional list of states to run after `Deploy Test`.
-stage: An optional list of states to run after `Deploy Stage`.
-prod: An optional list of states to run after `Deploy Prod`.
+test: An optional list of Fargate states to run after `Deploy Test`.
+stage: An optional list of Fargate states to run after `Deploy Stage`.
+prod: An optional list of Fargate states to run after `Deploy Prod`.
 ---
 
 A Fargate state is defined as an object:
@@ -76,7 +76,7 @@ A Fargate state is defined as an object:
 name: The name of the state.
 image: The image to use.
 task_role: The name of a task role to use for the Fargate task.
-cmd_to_run: An optional command to run inside the container.
+cmd_to_run: Optional command to run inside the container.
 content: Optional S3 ZIP file to mount ($. notation can be used).
 task_memory: Optional string of amount of task memory to allocate.
 task_cpu: Optional string of amount of task cpu to allocate.
