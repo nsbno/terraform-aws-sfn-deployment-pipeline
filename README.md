@@ -16,6 +16,6 @@ The tests are run in parallel across different Terraform versions.
 
 
 ## Pipeline Examples
-Full |  Without Service Account Deployment | With Post-Deployment States
-:-------------------------:|:------------------------:|:-------------------------:
-![](docs/pipeline.png)  |  ![](docs/non_service_pipeline.png)  | ![](docs/pipeline_custom_states.png)
+Single Account | Test, Stage & Prod Accounts | All Accounts | All Accounts w/Post-Deployment States
+:-------------------------:|:-------------------------:|:------------------------:|:-------------------------:
+![](docs/single_account_pipeline.png)  |   ![](docs/non_service_pipeline.png)  |  ![](docs/pipeline.png)  | ![](docs/pipeline_custom_states.png)
