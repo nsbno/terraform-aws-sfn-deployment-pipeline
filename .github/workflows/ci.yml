@@ -1,0 +1,42 @@
+name: Tests
+on: [push]
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        terraform-version: [0.12.23, 0.12.24, 0.12.25, 0.12.26, 0.12.27, 0.12.28, 0.12.29]
+    runs-on: ubuntu-latest
+    container: vydev/terraform:${{ matrix.terraform-version }}
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install Bash
+      run: |
+        if ! bash --version; then
+          echo "Installing bash"
+          apk add bash
+        fi
+    - name: Verify State Machine Definitions
+      shell: bash
+      run: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        IFS=$'\n\t'
+        echo "Running tests using Terraform ${{ matrix.terraform-version }}"
+        diffs=()
+        cd test
+        cp ../{payloads,states,variables}.tf .
+        terraform init
+        for test_case in cases/*; do
+          cp "$test_case/terraform.tfvars" .
+          cp "$test_case/expected.json" .
+          terraform apply -auto-approve
+          res="$(diff <(jq -S . expected.json) <(jq -S . generated.json) || true)"
+          if [ -n "$res" ]; then
+            diffs+=("$res")
+          fi
+        done
+        if [ "${#diffs[@]}" -gt 0 ]; then
+          printf "%s\n" "${diffs[@]}"
+          exit 1
+        fi
