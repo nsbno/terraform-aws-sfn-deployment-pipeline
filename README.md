@@ -8,12 +8,16 @@ The module additionally allows you to add an arbitrary number of _post-deploymen
 - A `Smoke Tests` state after a successful deployment to prod.
 - ...
 
+## Requirements
+- At least one AWS account.
+- A remote backend for Terraform (i.e., encrypted S3 bucket for storing state, DynamoDB table for limiting concurrent edits to state file) in all AWS accounts that the pipeline is configured to deploy to. _(A CloudFormation template is supplied in [cloudformation/](cloudformation/) if you haven't already configured a remote backend)._
 
 ## Testing
 The Terraform files are separated into different files to make it easy to test the generation of the JSON state machine definition without actually provisioning any AWS resources.
 
-The tests are run in parallel across different Terraform versions.
+Multiple test cases spanning simple and complex deployment pipelines are set up in [test/](test/).
 
+GitHub Actions is set up to run all the tests on every push to the repository. The tests are run in parallel across different Terraform versions.
 
 ## Pipeline Examples
 Single Account | Test, Stage & Prod Accounts | All Accounts | All Accounts w/Post-Deployment States
