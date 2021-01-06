@@ -3,7 +3,7 @@ This Terraform module creates a Continuous Deployment (CD) pipeline using AWS St
 
 The pipeline deploys to the `test`, `stage` and `service` accounts in parallel, and deploys to `prod` only if all previous states have passed. The module allows you to create pipelines consisting of different combinations of accounts, with the only requirement being that at least one account is being deployed to. See examples below.
 
-The module additionally allows you to add an arbitrary number of _post-deployment_ states to the pipeline -- that is, states that will be run after a successful deployment to `test`, `stage` or `prod`. These states will spin up a containers with a user-defined image, command and S3 content. Examples of such states are:
+The module additionally allows you to add an arbitrary number of _post-deployment_ states to the pipeline -- that is, states that will be run after a successful deployment to `service`, `test`, `stage` or `prod`. These states will spin up a container with a user-defined image, shell command and S3 content. Examples of such states are:
 - An `Integration Tests` state after a successful deployment to stage.
 - A `Smoke Tests` state after a successful deployment to prod.
 - ...
