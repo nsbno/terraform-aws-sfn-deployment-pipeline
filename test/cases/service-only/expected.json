@@ -1,0 +1,33 @@
+{
+  "Comment": "A deployment pipeline implemented as a state machine",
+  "StartAt": "Deploy Service",
+  "States": {
+    "Deploy Service": {
+      "End": true,
+      "Parameters": {
+        "FunctionName": "single-use-fargate-task",
+        "Payload": {
+          "cmd_to_run": "temp_role=$(aws sts assume-role --role-arn arn:aws:iam::123456789012:role/deployment-role --role-session-name deployment-from-service-account) && aws configure set profile.deployment.aws_access_key_id \"$(echo $temp_role | jq -r .Credentials.AccessKeyId)\" && aws configure set profile.deployment.aws_secret_access_key \"$(echo $temp_role | jq -r .Credentials.SecretAccessKey)\" && aws configure set profile.deployment.aws_session_token \"$(echo $temp_role | jq -r .Credentials.SessionToken)\" && export AWS_PROFILE=deployment && cd terraform/service && terraform init -lock-timeout=120s -no-color && terraform apply -auto-approve -lock-timeout=120s -no-color",
+          "content.$": "$.deployment_package",
+          "credentials_secret_arn": "",
+          "ecs_cluster": "cluster",
+          "image": "vydev/terraform:0.12.29",
+          "state.$": "$$.State.Name",
+          "state_machine_id": "example-state-machine",
+          "subnets": [
+            "subnet-1",
+            "subnet-2",
+            "subnet-3"
+          ],
+          "task_execution_role_arn": "execution-role",
+          "task_role_arn": "task-role",
+          "token.$": "$$.Task.Token"
+        }
+      },
+      "Resource": "arn:aws:states:::lambda:invoke.waitForTaskToken",
+      "ResultPath": null,
+      "TimeoutSeconds": 3600,
+      "Type": "Task"
+    }
+  }
+}
