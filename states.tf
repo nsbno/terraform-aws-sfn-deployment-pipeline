@@ -56,8 +56,9 @@ locals {
         "ResultPath" = "$.result"
         # Perform a reverse sort in order to get the branches in the order `test, service, stage` for visual purposes
         "Branches" = [for account_name in reverse(sort(keys(local.parallel_deployment_accounts))) : {
-          "StartAt" = "Bump Versions in ${title(account_name)}"
-          "States" = merge({
+          # Skip `Bump Versions in ...` in the service account
+          "StartAt" = account_name == "service" ? "Deploy ${title(account_name)}" : "Bump Versions in ${title(account_name)}"
+          "States" = merge(merge(account_name == "service" ? {} : {
             "Bump Versions in ${title(account_name)}" = {
               "Comment"  = "Update SSM parameters in ${account_name} environment to latest versions of applications artifacts",
               "Type"     = "Task",
@@ -73,6 +74,7 @@ locals {
               "ResultPath" = null
               "Next"       = "Deploy ${title(account_name)}"
             }
+            }, {
             "Deploy ${title(account_name)}" = {
               "Type"     = "Task"
               "Resource" = "arn:aws:states:::lambda:invoke.waitForTaskToken"
@@ -96,7 +98,7 @@ locals {
               "Type" = "Pass"
               "End"  = true
             }
-          }, local.additional_parallel_states[account_name])
+          }), local.additional_parallel_states[account_name])
           }
         ]
       }
