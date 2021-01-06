@@ -10,6 +10,10 @@ Parameters:
     Type: String
     Default: "terraform-lock"
     Description: "A suffix to append to the name of the DynamoDB table."
+  KeySuffix:
+    Type: String
+    Default: "terraform-key"
+    Description: "A suffix to append to the name of the KMS alias used to encrypt the Terraform state."
 
 Resources:
   TerraformBucket:
@@ -53,7 +57,6 @@ Resources:
                  StringNotEqualsIfExists:
                    s3:x-amz-server-side-encryption-aws-kms-key-id: !GetAtt BucketEncryptionKey.Arn
 
-
   BucketEncryptionKey:
     Type: "AWS::KMS::Key"
     Properties:
@@ -66,6 +69,11 @@ Resources:
           Action: "kms:*"
           Resource: '*'
 
+  BucketEncryptionKeyAlias:
+    Type: "AWS::KMS::Alias"
+    Properties:
+      AliasName: !Sub "alias/${AWS::AccountId}-${KeySuffix}"
+      TargetKeyId: !Ref BucketEncryptionKey
 
   TerraformTable:
     Type: 'AWS::DynamoDB::Table'
@@ -87,3 +95,5 @@ Outputs:
     Value: !Ref TerraformTable
   TerraformBucket:
     Value: !Ref TerraformBucket
+  TerraformEncryptionKeyAlias:
+    Value: !Ref BucketEncryptionKeyAlias
