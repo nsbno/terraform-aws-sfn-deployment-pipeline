@@ -241,41 +241,8 @@
           }
         },
         {
-          "StartAt": "Bump Versions in Service",
+          "StartAt": "Deploy Service",
           "States": {
-            "Bump Versions in Service": {
-              "Catch": [
-                {
-                  "ErrorEquals": [
-                    "States.ALL"
-                  ],
-                  "Next": "Catch Service Errors"
-                }
-              ],
-              "Comment": "Update SSM parameters in service environment to latest versions of applications artifacts",
-              "Next": "Deploy Service",
-              "Parameters": {
-                "FunctionName": "set-version",
-                "Payload": {
-                  "account_id": "123456789012",
-                  "ecr_applications": [],
-                  "frontend_applications": [],
-                  "frontend_s3_bucket": "",
-                  "frontend_s3_prefix": "",
-                  "get_versions": false,
-                  "lambda_applications": [],
-                  "lambda_s3_bucket": "",
-                  "lambda_s3_prefix": "",
-                  "role_to_assume": "set-version-role",
-                  "set_versions": true,
-                  "ssm_prefix": "example",
-                  "versions.$": "$.versions"
-                }
-              },
-              "Resource": "arn:aws:states:::lambda:invoke",
-              "ResultPath": null,
-              "Type": "Task"
-            },
             "Catch Service Errors": {
               "End": true,
               "Type": "Pass"
