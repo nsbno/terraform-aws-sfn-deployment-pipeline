@@ -2,7 +2,7 @@ locals {
   # The state machine definition that we will jsonencode and use
   state_machine_definition = {
     "Comment" = "A deployment pipeline implemented as a state machine"
-    "StartAt" = "Get Latest Artifact Versions"
+    "StartAt" = "${keys(local.states[0])[0]}"
     # Define all states in the correct order
     "States" = {
       for i in range(length(local.states)) :
@@ -29,7 +29,8 @@ locals {
 locals {
   # Create an ordered list of all states to include, and filter out empty objects -- that is, states that were determined to be excluded.
   states = [for state in flatten([
-    # Initial state -- we always include this
+    # Initial state -- always include this unless we are only deploying to the service account
+    keys(local.accounts) == ["service"] ? {} :
     {
       "Get Latest Artifact Versions" = {
         "Comment"  = "Get the latest versions of application artifacts in S3 and ECR"
@@ -122,7 +123,7 @@ locals {
       }
       # Reverse alphabetically to make sure deployment to prod is run last
     },
-    [for account_name in reverse(sort(setsubtract(keys(local.accounts), keys(local.parallel_deployment_accounts)))) : [{
+    [for account_name in reverse(sort(setsubtract(keys(local.accounts), keys(local.parallel_deployment_accounts)))) : concat(account_name == "service" ? [] : [{
       "Bump Versions in ${title(account_name)}" = {
         "Comment"  = "Update SSM parameters in ${account_name} environment to latest versions of applications artifacts",
         "Type"     = "Task"
@@ -133,7 +134,7 @@ locals {
         },
         "ResultPath" = null,
       }
-      }, {
+      }], [{
       "Deploy ${title(account_name)}" = {
         "Type"     = "Task",
         "Resource" = "arn:aws:states:::lambda:invoke.waitForTaskToken"
@@ -146,7 +147,7 @@ locals {
       }
       },
       [for name, state in local.additional_states[account_name] : { "${name}" = state }]
-      ]
+      ])
     ]
   ]) : state if length(state) > 0]
 }
