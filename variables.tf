@@ -66,6 +66,7 @@ variable "post_deployment_states" {
   description = <<DOC
 Optional Fargate states to run after successful deployments (e.g., `Integration Tests`).
 ---
+service: An optional list of Fargate states to run after `Deploy Service`.
 test: An optional list of Fargate states to run after `Deploy Test`.
 stage: An optional list of Fargate states to run after `Deploy Stage`.
 prod: An optional list of Fargate states to run after `Deploy Prod`.
