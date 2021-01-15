@@ -10,11 +10,12 @@ The configuration for the Terraform deployment states (e.g., `Deploy Test`) in t
 deployment_role: The name of a role to assume during a deployment (e.g., a cross-account role).
 task_role: The name of a task role to use for the single-use deployment Fargate tasks.
 image: The Docker image to use during a deployment (e.g., `vydev/terraform:0.12.29`).
-accounts: An object that describes which accounts to deploy to. At least one of the keys `test`, `stage`, `prod` or `service` is required.
+accounts: An object that describes which accounts to deploy to. At least one of the keys `dev`, `test`, `stage`, `prod` or `service` is required.
   service: An account object.
     id: The account id.
     path: Optional path to Terraform folder (e.g., `terraform/custom`).
     dry_run: Optional boolean that determines if the pipeline should do a dry-run of the deployment or not -- where a dry-run means running `terraform plan` instead of `terraform apply`, and not updating the SSM version parameters. (Defaults to false).
+  dev: Same account object as above.
   test: Same account object as above.
   stage: Same account object as above.
   prod: Same account object as above.
@@ -67,6 +68,7 @@ variable "post_deployment_states" {
 Optional Fargate states to run after successful deployments (e.g., `Integration Tests`).
 ---
 service: An optional list of Fargate states to run after `Deploy Service`.
+dev: An optional list of Fargate states to run after `Deploy Dev`.
 test: An optional list of Fargate states to run after `Deploy Test`.
 stage: An optional list of Fargate states to run after `Deploy Stage`.
 prod: An optional list of Fargate states to run after `Deploy Prod`.
