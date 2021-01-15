@@ -8,12 +8,12 @@ locals {
   default_deploy_state_timeout     = 3600
   default_additional_state_timeout = 3600
   accounts = {
-    for name in setintersection(["test", "stage", "prod", "service"], keys(var.deployment_configuration.accounts)) :
+    for name in setintersection(["dev", "test", "stage", "prod", "service"], keys(var.deployment_configuration.accounts)) :
     name => var.deployment_configuration.accounts[name]
   }
   parallel_deployment_accounts = (
     length(setsubtract(keys(local.accounts), ["prod"])) > 1
-    ? { for name, account in local.accounts : name => account if contains(["test", "stage", "service"], name) }
+    ? { for name, account in local.accounts : name => account if contains(["dev", "test", "stage", "service"], name) }
     : {}
   )
 }
